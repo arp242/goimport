@@ -22,4 +22,8 @@ TODO:
 - Make `-rm` deal with named imports.
 - What to do if a package is already imported?
 - Error out if package not in GOPATH.
-
+- Remove quotes in e.g. `-add '"errors"'
+- Make sure it works with trailing slash, e.g. `-add the/path/with/slash/`
+- Add automatic `go get`?
+- Add `-toggle` to toggle importing/removing
+- Possible to print out only import block?

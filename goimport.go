@@ -64,7 +64,7 @@ func main() {
 			fatal(errors.New("can't use -w with stdin"))
 		}
 
-		fmt.Fprintf(os.Stderr, "goimport: reading from stdin...\n")
+		//fmt.Fprintf(os.Stderr, "goimport: reading from stdin...\n")
 		if err := process("<standard input>", os.Stdin, os.Stdout, opts); err != nil {
 			fatal(err)
 		}
