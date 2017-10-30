@@ -1,4 +1,5 @@
 language: go
+go_import_path: arp242.net/goimport
 go:
   - 1.8.x
   - 1.9.x
@@ -6,7 +7,7 @@ cache:
   directories:
     - $HOME/gopath/pkg
 script:
-  - cd $HOME/gopath/src/github.com/Carpetsmoker/goimport
+  - cd $HOME/gopath/src/arp242.net/goimport
   - ./bin/test
   - ./bin/coverage
   - ./bin/lint
