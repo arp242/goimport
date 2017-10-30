@@ -1,0 +1,12 @@
+language: go
+go:
+  - 1.8.x
+  - 1.9.x
+cache:
+  directories:
+    - $HOME/gopath/pkg
+script:
+  - cd $HOME/gopath/src/github.com/Carpetsmoker/goimport
+  - ./bin/test
+  - ./bin/coverage
+  - ./bin/lint
