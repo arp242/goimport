@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/printer"
@@ -49,7 +50,7 @@ func main() {
 	}
 
 	flag.BoolVar(&opts.get, "g", false, "attempt to 'go get' packages not in GOPATH")
-	flag.BoolVar(&opts.force, "f", false, "force adding/removing package, unless there are fatal error")
+	flag.BoolVar(&opts.force, "f", false, "force adding/removing package, unless there is a fatal error")
 	flag.BoolVar(&opts.write, "w", false, "write result to (source) file instead of stdout")
 	flag.Var(&opts.add, "add", "add import; can be given multiple times")
 	flag.Var(&opts.sub, "sub", "like -add, but if an existing package with this name exists it will be replaced")
@@ -57,8 +58,8 @@ func main() {
 	flag.Parse()
 	paths := flag.Args()
 
-	if len(opts.add) == 0 && len(opts.rm) == 0 {
-		fatal(errors.New("need at least one -add or -rm"))
+	if len(opts.add)+len(opts.sub)+len(opts.rm) == 0 {
+		fatal(errors.New("need at least one -add, -sub, or -rm"))
 	}
 
 	switch len(paths) {
@@ -145,59 +146,21 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 		}
 	}
 
-	for _, add := range opts.add {
-		// import_path:alias
-		if strings.Contains(add, ":") {
-			s := strings.Split(add, ":")
-			if len(s) != 2 {
-				return nil, fmt.Errorf("invalid -add: %v", s)
-			}
-			if !opts.force && InStringSlice(imports, s[0]) {
-				return nil, fmt.Errorf("import '%v' is already used", s[0])
-			}
-			if !opts.force && InStringSlice(importsBase, path.Base(s[0])) {
-				return nil, fmt.Errorf("import '%v' would conflict", s[0])
-			}
-
-			s[0] = strings.Trim(s[0], `"/`)
-			if !exists(s[0]) {
-				if opts.get {
-					// TODO
-				}
-
-				if !opts.force {
-					return nil, fmt.Errorf("import '%v' is not in GOPATH", s[0])
-				}
-			}
-
-			astutil.AddNamedImport(fset, file, s[1], s[0])
-		} else {
-			if !opts.force && InStringSlice(imports, add) {
-				return nil, fmt.Errorf("import '%v' is already used", add)
-			}
-			if !opts.force && InStringSlice(importsBase, path.Base(add)) {
-				return nil, fmt.Errorf("import '%v' would conflict", add)
-			}
-
-			add = strings.Trim(add, `"/`)
-			if !exists(add) {
-				if opts.get {
-					// TODO
-				}
-
-				if !opts.force {
-					return nil, fmt.Errorf("import '%v' is not in GOPATH", add)
-				}
-			}
-
-			astutil.AddImport(fset, file, add)
+	for _, pkg := range opts.add {
+		if err := addPackage(fset, file, pkg, opts, false); err != nil {
+			return nil, err
+		}
+	}
+	for _, pkg := range opts.sub {
+		if err := addPackage(fset, file, pkg, opts, true); err != nil {
+			return nil, err
 		}
 	}
 
-	for _, rm := range opts.rm {
+	for _, pkg := range opts.rm {
 		// TODO: deal with named imports.
-		rm = strings.Trim(rm, `"/`)
-		astutil.DeleteImport(fset, file, rm)
+		pkg = strings.Trim(pkg, `"/`)
+		astutil.DeleteImport(fset, file, pkg)
 	}
 
 	// Write output.
@@ -214,6 +177,65 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	}
 
 	return out, nil
+}
+
+func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, sub bool) error {
+
+	imports := []string{}
+	importsBase := []string{}
+	for _, imp := range astutil.Imports(fset, file) {
+		for _, i := range imp {
+			imports = append(imports, strings.Trim(i.Path.Value, `"`))
+			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`)))
+		}
+	}
+
+	pkgAlias := ""
+	if strings.Contains(pkg, ":") {
+		s := strings.Split(pkg, ":")
+		if len(s) != 2 {
+			return fmt.Errorf("invalid package name: %v", s)
+		}
+
+		pkg = s[0]
+		pkgAlias = s[1]
+	}
+
+	if !opts.force && InStringSlice(imports, pkg) {
+		return fmt.Errorf("import '%v' is already used", pkg)
+	}
+
+	for _, imp := range imports {
+		if path.Base(imp) != path.Base(pkg) {
+			continue
+		}
+
+		if sub {
+			astutil.DeleteImport(fset, file, imp)
+		} else if !opts.force {
+			return fmt.Errorf("import '%v' would conflict", pkg)
+		}
+
+	}
+
+	pkg = strings.Trim(pkg, `"/`)
+	if !exists(pkg) {
+		if opts.get {
+			// TODO
+		}
+
+		if !opts.force {
+			return fmt.Errorf("import '%v' is not in GOPATH", pkg)
+		}
+	}
+
+	if pkgAlias == "" {
+		astutil.AddImport(fset, file, pkg)
+	} else {
+		astutil.AddNamedImport(fset, file, pkg, pkgAlias)
+	}
+
+	return nil
 }
 
 // InStringSlice reports whether str is within list

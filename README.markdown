@@ -24,6 +24,5 @@ Example usage:
 TODO:
 
 - Make `-rm` deal with named imports.
-- Make `-sub` work
 - Add automatic `go get`?
 - Possible to print out only import block?

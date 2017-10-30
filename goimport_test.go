@@ -100,6 +100,13 @@ func TestRewrite(t *testing.T) {
 			"",
 			"import 'does/not/exist' is not in GOPATH",
 		},
+
+		{
+			options{sub: StringList{"text/template"}},
+			"package main\n\nimport \"html/template\"\n",
+			"package main\n\nimport \"text/template\"\n",
+			"",
+		},
 	}
 
 	for i, tc := range cases {
