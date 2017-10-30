@@ -12,12 +12,16 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"path"
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-// StringList appends eachs List of strings.
+const stdin = "<standard input>"
+
+// StringList appends strings.
 type StringList []string
 
 func (l *StringList) String() string {
@@ -31,9 +35,8 @@ func (l *StringList) Set(v string) error {
 }
 
 type options struct {
-	add   StringList
-	rm    StringList
-	write bool
+	add, rm, sub      StringList
+	write, get, force bool
 }
 
 func main() {
@@ -45,12 +48,13 @@ func main() {
 		os.Exit(2)
 	}
 
-	write := flag.Bool("w", false, "write result to (source) file instead of stdout")
-	flag.Var(&opts.add, "add", "Add import; can be given multiple times")
-	flag.Var(&opts.rm, "rm", "Remove import; can be given multiple times")
-
+	flag.BoolVar(&opts.get, "g", false, "attempt to 'go get' packages not in GOPATH")
+	flag.BoolVar(&opts.force, "f", false, "force adding/removing package, unless there are fatal error")
+	flag.BoolVar(&opts.write, "w", false, "write result to (source) file instead of stdout")
+	flag.Var(&opts.add, "add", "add import; can be given multiple times")
+	flag.Var(&opts.sub, "sub", "like -add, but if an existing package with this name exists it will be replaced")
+	flag.Var(&opts.rm, "rm", "remove import; can be given multiple times")
 	flag.Parse()
-	opts.write = *write
 	paths := flag.Args()
 
 	if len(opts.add) == 0 && len(opts.rm) == 0 {
@@ -65,12 +69,12 @@ func main() {
 		}
 
 		//fmt.Fprintf(os.Stderr, "goimport: reading from stdin...\n")
-		if err := process("<standard input>", os.Stdin, os.Stdout, opts); err != nil {
+		if err := process(stdin, opts); err != nil {
 			fatal(err)
 		}
 
 	case 1:
-		if err := process(paths[0], nil, os.Stdout, opts); err != nil {
+		if err := process(paths[0], opts); err != nil {
 			fatal(err)
 		}
 
@@ -80,15 +84,19 @@ func main() {
 		}
 
 		for _, path := range paths {
-			if err := process(path, nil, os.Stdout, opts); err != nil {
+			if err := process(path, opts); err != nil {
 				fatal(err)
 			}
 		}
 	}
 }
 
-func process(filename string, in io.Reader, out io.Writer, opts options) error {
-	if in == nil {
+// process a file.
+func process(filename string, opts options) error {
+	var in io.Reader
+	if filename == stdin {
+		in = os.Stdin
+	} else {
 		f, err := os.Open(filename)
 		if err != nil {
 			return err
@@ -112,7 +120,7 @@ func process(filename string, in io.Reader, out io.Writer, opts options) error {
 			return err
 		}
 	} else {
-		if _, err := out.Write(res); err != nil {
+		if _, err := os.Stdout.Write(res); err != nil {
 			return err
 		}
 	}
@@ -122,28 +130,75 @@ func process(filename string, in io.Reader, out io.Writer, opts options) error {
 
 func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	fset := token.NewFileSet()
+	//file, err := parser.ParseFile(fset, filename, src, parser.ImportsOnly)
 	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
 
+	imports := []string{}
+	importsBase := []string{}
+	for _, imp := range astutil.Imports(fset, file) {
+		for _, i := range imp {
+			imports = append(imports, strings.Trim(i.Path.Value, `"`))
+			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`)))
+		}
+	}
+
 	for _, add := range opts.add {
+		// import_path:alias
 		if strings.Contains(add, ":") {
 			s := strings.Split(add, ":")
 			if len(s) != 2 {
 				return nil, fmt.Errorf("invalid -add: %v", s)
 			}
+			if !opts.force && InStringSlice(imports, s[0]) {
+				return nil, fmt.Errorf("import '%v' is already used", s[0])
+			}
+			if !opts.force && InStringSlice(importsBase, path.Base(s[0])) {
+				return nil, fmt.Errorf("import '%v' would conflict", s[0])
+			}
+
+			s[0] = strings.Trim(s[0], `"/`)
+			if !exists(s[0]) {
+				if opts.get {
+					// TODO
+				}
+
+				if !opts.force {
+					return nil, fmt.Errorf("import '%v' is not in GOPATH", s[0])
+				}
+			}
+
 			astutil.AddNamedImport(fset, file, s[1], s[0])
 		} else {
+			if !opts.force && InStringSlice(imports, add) {
+				return nil, fmt.Errorf("import '%v' is already used", add)
+			}
+			if !opts.force && InStringSlice(importsBase, path.Base(add)) {
+				return nil, fmt.Errorf("import '%v' would conflict", add)
+			}
+
+			add = strings.Trim(add, `"/`)
+			if !exists(add) {
+				if opts.get {
+					// TODO
+				}
+
+				if !opts.force {
+					return nil, fmt.Errorf("import '%v' is not in GOPATH", add)
+				}
+			}
+
 			astutil.AddImport(fset, file, add)
 		}
 	}
+
 	for _, rm := range opts.rm {
 		// TODO: deal with named imports.
+		rm = strings.Trim(rm, `"/`)
 		astutil.DeleteImport(fset, file, rm)
 	}
-
-	// TODO: what to do if a package already exists?
 
 	// Write output.
 	printConfig := &printer.Config{}
@@ -161,7 +216,22 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	return out, nil
 }
 
+// InStringSlice reports whether str is within list
+func InStringSlice(list []string, str string) bool {
+	for _, item := range list {
+		if item == str {
+			return true
+		}
+	}
+	return false
+}
+
 func fatal(err error) {
 	fmt.Fprintf(os.Stderr, "goimport: %v\n", err)
 	os.Exit(1)
+}
+
+func exists(pkg string) bool {
+	cmd := exec.Command("go", "list", pkg)
+	return cmd.Run() == nil
 }

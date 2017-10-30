@@ -17,13 +17,13 @@ Example usage:
 	# Add errors package aliased as "errs"
 	$ goimport -add errors:errs foo.go
 
+	# Either add an import or replace existing errors with
+	# github.com/pkg/errors.
+	$ goimport -sub github.com/pkg/errors foo.go
+
 TODO:
 
 - Make `-rm` deal with named imports.
-- What to do if a package is already imported?
-- Error out if package not in GOPATH.
-- Remove quotes in e.g. `-add '"errors"'
-- Make sure it works with trailing slash, e.g. `-add the/path/with/slash/`
+- Make `-sub` work
 - Add automatic `go get`?
-- Add `-toggle` to toggle importing/removing
 - Possible to print out only import block?

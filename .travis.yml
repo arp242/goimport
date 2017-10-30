@@ -6,6 +6,8 @@ go:
 cache:
   directories:
     - $HOME/gopath/pkg
+install:
+  - dep ensure
 script:
   - cd $HOME/gopath/src/arp242.net/goimport
   - ./bin/test
