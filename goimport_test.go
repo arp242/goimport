@@ -102,7 +102,7 @@ func TestRewrite(t *testing.T) {
 		},
 
 		{
-			options{sub: StringList{"text/template"}},
+			options{replace: StringList{"text/template"}},
 			"package main\n\nimport \"html/template\"\n",
 			"package main\n\nimport \"text/template\"\n",
 			"",
