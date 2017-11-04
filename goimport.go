@@ -3,6 +3,7 @@ package main // import "arp242.net/goimport"
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -36,9 +37,17 @@ func (l *StringList) Set(v string) error {
 	return nil
 }
 
+// JSON output.
+type JSON struct {
+	Start     int    `json:"start"`
+	End       int    `json:"end"`
+	Linedelta int    `json:"linedelta"`
+	Code      string `json:"code"`
+}
+
 type options struct {
-	add, rm, replace              StringList
-	write, get, force, importOnly bool
+	add, rm, replace        StringList
+	write, get, force, json bool
 }
 
 func main() {
@@ -56,8 +65,8 @@ func main() {
 		"force adding/removing package, unless there is a fatal error")
 	flag.BoolVar(&opts.write, "w", false,
 		"write result to (source) file instead of stdout")
-	flag.BoolVar(&opts.importOnly, "b", false,
-		"print out only the improt block instead of the entire file")
+	flag.BoolVar(&opts.json, "j", false,
+		"print out only the import block as JSON")
 	flag.Var(&opts.add, "add",
 		"add import; can be given multiple times")
 	flag.Var(&opts.rm, "rm",
@@ -72,8 +81,8 @@ func main() {
 		fatal(errors.New("need at least one -add, -replace, or -rm"))
 	}
 
-	if opts.write && opts.importOnly {
-		fatal(errors.New("can't use both -w and -b"))
+	if opts.write && opts.json {
+		fatal(errors.New("can't use both -w and -j"))
 	}
 
 	switch len(paths) {
@@ -146,12 +155,34 @@ func process(filename string, opts options) error {
 func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	fset := token.NewFileSet()
 	flags := parser.ParseComments
-	if opts.importOnly {
+	if opts.json {
 		flags |= parser.ImportsOnly
 	}
 	file, err := parser.ParseFile(fset, filename, src, flags)
 	if err != nil {
 		return nil, fmt.Errorf("ast parse error: %v", err)
+	}
+
+	beforeLines := len(file.Imports)
+	var start, end int
+
+	if opts.json {
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.GenDecl:
+				_, ok := x.Specs[0].(*ast.ImportSpec)
+				// var, const, or type
+				if !ok {
+					return false
+				}
+				start = int(x.Pos())
+				end = int(x.End())
+
+			case *ast.FuncDecl:
+				return false
+			}
+			return true
+		})
 	}
 
 	imports := []string{}
@@ -181,19 +212,64 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	}
 
 	// Write output.
-	printConfig := &printer.Config{}
-	var buf bytes.Buffer
-	err = printConfig.Fprint(&buf, fset, file)
-	if err != nil {
-		return nil, fmt.Errorf("print error: %v", err)
-	}
+	var out []byte
+	if opts.json {
+		out, err = json.Marshal(JSON{
+			Code:      formatImports(fset, file),
+			Linedelta: len(file.Imports) - beforeLines,
+			Start:     start,
+			End:       end,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("json error: %v", err)
+		}
+		out = append(out, '\n')
+	} else {
+		printConfig := &printer.Config{}
+		var buf bytes.Buffer
+		err = printConfig.Fprint(&buf, fset, file)
+		if err != nil {
+			return nil, fmt.Errorf("print error: %v", err)
+		}
 
-	out, err := format.Source(buf.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("format error: %v", err)
+		out, err = format.Source(buf.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("format error: %v", err)
+		}
 	}
 
 	return out, nil
+}
+
+func formatImports(fset *token.FileSet, file *ast.File) string {
+	switch len(file.Imports) {
+	case 0:
+		return ""
+	case 1:
+		return "import " + fmt.Sprintf("import %v", formatImport(file.Imports[0]))
+	default:
+		imp := "import (\n"
+		for _, p := range file.Imports {
+			imp += "\t" + formatImport(p) + "\n"
+		}
+		return imp + ")\n\n"
+	}
+}
+
+func formatImport(p *ast.ImportSpec) string {
+	name := ""
+	if p.Name != nil {
+		name = p.Name.Name + " "
+	}
+	comment := ""
+	if p.Comment != nil {
+		comment = ""
+		for _, c := range p.Comment.List {
+			comment += " " + c.Text
+		}
+	}
+
+	return name + p.Path.Value + comment
 }
 
 func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, replace bool) error {

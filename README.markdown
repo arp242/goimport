@@ -24,9 +24,8 @@ Example usage:
 	# Go get package if it doesn't exist
 	$ goimport -add github.com/pkg/errors -g foo.go
 
-	# Print out only the import block & everything before it (useful for
-	# editor integrations).
-	$ goimport -add github.com/pkg/errors -b foo.go
+	# Print out only the import block as json (useful for # editor integrations).
+	$ goimport -add github.com/pkg/errors -j foo.go
 
 See `goimport -h` for the full help.
 
