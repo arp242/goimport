@@ -1,3 +1,4 @@
+// goimport is a tool to add, remove, or replace imports in Go files.
 package main // import "arp242.net/goimport"
 
 import (
@@ -36,8 +37,8 @@ func (l *StringList) Set(v string) error {
 }
 
 type options struct {
-	add, rm, sub      StringList
-	write, get, force bool
+	add, rm, replace              StringList
+	write, get, force, importOnly bool
 }
 
 func main() {
@@ -49,17 +50,30 @@ func main() {
 		os.Exit(2)
 	}
 
-	flag.BoolVar(&opts.get, "g", false, "attempt to 'go get' packages not in GOPATH")
-	flag.BoolVar(&opts.force, "f", false, "force adding/removing package, unless there is a fatal error")
-	flag.BoolVar(&opts.write, "w", false, "write result to (source) file instead of stdout")
-	flag.Var(&opts.add, "add", "add import; can be given multiple times")
-	flag.Var(&opts.sub, "sub", "like -add, but if an existing package with this name exists it will be replaced")
-	flag.Var(&opts.rm, "rm", "remove import; can be given multiple times")
+	flag.BoolVar(&opts.get, "g", false,
+		"attempt to 'go get' packages not in GOPATH")
+	flag.BoolVar(&opts.force, "f", false,
+		"force adding/removing package, unless there is a fatal error")
+	flag.BoolVar(&opts.write, "w", false,
+		"write result to (source) file instead of stdout")
+	flag.BoolVar(&opts.importOnly, "b", false,
+		"print out only the improt block instead of the entire file")
+	flag.Var(&opts.add, "add",
+		"add import; can be given multiple times")
+	flag.Var(&opts.rm, "rm",
+		"remove import; can be given multiple times")
+	flag.Var(&opts.replace, "replace",
+		"like -add, but if an existing package with this name exists it will be replaced")
+
 	flag.Parse()
 	paths := flag.Args()
 
-	if len(opts.add)+len(opts.sub)+len(opts.rm) == 0 {
-		fatal(errors.New("need at least one -add, -sub, or -rm"))
+	if len(opts.add)+len(opts.replace)+len(opts.rm) == 0 {
+		fatal(errors.New("need at least one -add, -replace, or -rm"))
+	}
+
+	if opts.write && opts.importOnly {
+		fatal(errors.New("can't use both -w and -b"))
 	}
 
 	switch len(paths) {
@@ -131,10 +145,13 @@ func process(filename string, opts options) error {
 
 func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	fset := token.NewFileSet()
-	//file, err := parser.ParseFile(fset, filename, src, parser.ImportsOnly)
-	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
+	flags := parser.ParseComments
+	if opts.importOnly {
+		flags |= parser.ImportsOnly
+	}
+	file, err := parser.ParseFile(fset, filename, src, flags)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ast parse error: %v", err)
 	}
 
 	imports := []string{}
@@ -151,7 +168,7 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 			return nil, err
 		}
 	}
-	for _, pkg := range opts.sub {
+	for _, pkg := range opts.replace {
 		if err := addPackage(fset, file, pkg, opts, true); err != nil {
 			return nil, err
 		}
@@ -168,18 +185,18 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	var buf bytes.Buffer
 	err = printConfig.Fprint(&buf, fset, file)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("print error: %v", err)
 	}
 
 	out, err := format.Source(buf.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("format error: %v", err)
 	}
 
 	return out, nil
 }
 
-func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, sub bool) error {
+func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, replace bool) error {
 
 	imports := []string{}
 	importsBase := []string{}
@@ -201,7 +218,7 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, s
 		pkgAlias = s[1]
 	}
 
-	if !opts.force && InStringSlice(imports, pkg) {
+	if !opts.force && inStringSlice(imports, pkg) {
 		return fmt.Errorf("import '%v' is already used", pkg)
 	}
 
@@ -210,7 +227,7 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, s
 			continue
 		}
 
-		if sub {
+		if replace {
 			astutil.DeleteImport(fset, file, imp)
 		} else if !opts.force {
 			return fmt.Errorf("import '%v' would conflict", pkg)
@@ -221,10 +238,12 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, s
 	pkg = strings.Trim(pkg, `"/`)
 	if !exists(pkg) {
 		if opts.get {
-			// TODO
+			if err := goget(pkg); err != nil {
+				return fmt.Errorf("could not go get %v: %v", pkg, err)
+			}
 		}
 
-		if !opts.force {
+		if !exists(pkg) && !opts.force {
 			return fmt.Errorf("import '%v' is not in GOPATH", pkg)
 		}
 	}
@@ -238,8 +257,17 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, s
 	return nil
 }
 
-// InStringSlice reports whether str is within list
-func InStringSlice(list []string, str string) bool {
+func goget(pkg string) error {
+	return exec.Command("go", "get", pkg).Run()
+}
+
+func exists(pkg string) bool {
+	cmd := exec.Command("go", "list", pkg)
+	return cmd.Run() == nil
+}
+
+// inStringSlice reports whether str is within list
+func inStringSlice(list []string, str string) bool {
 	for _, item := range list {
 		if item == str {
 			return true
@@ -251,9 +279,4 @@ func InStringSlice(list []string, str string) bool {
 func fatal(err error) {
 	fmt.Fprintf(os.Stderr, "goimport: %v\n", err)
 	os.Exit(1)
-}
-
-func exists(pkg string) bool {
-	cmd := exec.Command("go", "list", pkg)
-	return cmd.Run() == nil
 }

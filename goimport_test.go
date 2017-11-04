@@ -112,7 +112,7 @@ func TestRewrite(t *testing.T) {
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
 			outB, err := rewrite("test", []byte(tc.in), tc.opts)
-			if !ErrorContains(err, tc.wantErr) {
+			if !errorContains(err, tc.wantErr) {
 				t.Fatalf("wrong error\nout:  %#v\nwant: %#v\n", err, tc.wantErr)
 			}
 
@@ -147,12 +147,12 @@ func normalizeSpace(in string) string {
 	return strings.TrimSpace(r)
 }
 
-// ErrorContains checks if the error message in got contains the text in
+// errorContains checks if the error message in got contains the text in
 // expected.
 //
 // This is safe when got is nil. Use an empty string for expected if you want to
 // test that err is nil.
-func ErrorContains(got error, expected string) bool {
+func errorContains(got error, expected string) bool {
 	if got == nil {
 		return expected == ""
 	}

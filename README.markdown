@@ -19,10 +19,17 @@ Example usage:
 
 	# Either add an import or replace existing errors with
 	# github.com/pkg/errors.
-	$ goimport -sub github.com/pkg/errors foo.go
+	$ goimport -replace github.com/pkg/errors foo.go
+
+	# Go get package if it doesn't exist
+	$ goimport -add github.com/pkg/errors -g foo.go
+
+	# Print out only the import block & everything before it (useful for
+	# editor integrations).
+	$ goimport -add github.com/pkg/errors -b foo.go
+
+See `goimport -h` for the full help.
 
 TODO:
 
 - Make `-rm` deal with named imports.
-- Add automatic `go get`?
-- Possible to print out only import block?
