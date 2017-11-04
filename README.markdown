@@ -6,6 +6,8 @@
 
 `goimport` is a tool to add, remove, or replace imports in Go files.
 
+Install it with `go get arp242.net/goimport`.
+
 Example usage:
 
 	# Add errors package.
