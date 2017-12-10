@@ -322,7 +322,7 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, r
 		if replace {
 			astutil.DeleteNamedImport(fset, file, alias, imp)
 		} else if !opts.force {
-			return fmt.Errorf("import '%v' would conflict", pkg)
+			return fmt.Errorf("import '%v' would conflict with '%v'", pkg, imp)
 		}
 
 	}
