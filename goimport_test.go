@@ -11,6 +11,7 @@ func TestRewrite(t *testing.T) {
 		opts              options
 		in, want, wantErr string
 	}{
+		// Add
 		{
 			options{},
 			"package main\n",
@@ -43,6 +44,7 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 
+		// rm
 		{
 			options{rm: StringList{"errors", "fmt"}},
 			"package main\n",
@@ -56,6 +58,7 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 
+		// Add and rm
 		{
 			options{add: StringList{"io"}, rm: StringList{"errors", "fmt"}},
 			`
@@ -81,6 +84,16 @@ func TestRewrite(t *testing.T) {
 			`,
 			"",
 		},
+
+		// Replace
+		{
+			options{replace: StringList{"text/template"}},
+			"package main\n\nimport \"html/template\"\n",
+			"package main\n\nimport \"text/template\"\n",
+			"",
+		},
+
+		// Errors
 		{
 			options{add: StringList{"errors"}},
 			"package main\n\nimport \"errors\"\n",
@@ -93,18 +106,111 @@ func TestRewrite(t *testing.T) {
 			"",
 			"import 'text/template' would conflict",
 		},
-
+		{
+			options{add: StringList{"fmt"}, json: true},
+			"Not valid Go code.",
+			"",
+			"ast parse error",
+		},
 		{
 			options{add: StringList{"does/not/exist"}},
 			"package main\n",
 			"",
 			"import 'does/not/exist' is not in GOPATH",
 		},
-
 		{
-			options{replace: StringList{"text/template"}},
-			"package main\n\nimport \"html/template\"\n",
-			"package main\n\nimport \"text/template\"\n",
+			options{add: StringList{"too:many:colons"}},
+			"package main\n",
+			"",
+			"invalid package name",
+		},
+		{
+			options{add: StringList{"errors:"}},
+			"package main\n",
+			"",
+			"invalid package name",
+		},
+		{
+			options{add: StringList{":errors"}},
+			"package main\n",
+			"",
+			"invalid package name",
+		},
+
+		// Comments
+		{
+			options{add: StringList{"fmt", "time"}},
+			"package main\n\nimport \"html/template\" // A comment!\n",
+			"package main\n\nimport (\n\"fmt\"\n\"html/template\" // A comment!\n\"time\"\n)\n",
+			"",
+		},
+		{
+			options{add: StringList{"fmt", "time"}},
+			"package main\n\nimport \"html/template\" /* A comment! */\n",
+			"package main\n\nimport (\n\"fmt\"\n\"html/template\" /* A comment! */\n\"time\"\n)\n",
+			"",
+		},
+		{
+			options{add: StringList{"fmt", "time"}},
+			"package main\n\nimport \"html/template\" /* A */ /* comment! */\n",
+			"package main\n\nimport (\n\"fmt\"\n\"html/template\" /* A */ /* comment! */\n\"time\"\n)\n",
+			"",
+		},
+		{
+			options{add: StringList{"time"}},
+			`
+				package main
+
+				import (
+					"errors"
+					// Commenting fmt
+					"fmt"
+				)
+			`,
+			`
+				package main
+
+				import (
+					"errors"
+					"time"
+					// Commenting fmt
+					"fmt"
+				)
+			`,
+			"",
+		},
+
+		// Named imports
+		{
+			options{add: StringList{"errors:e"}},
+			"package main\n",
+			"package main\n\nimport e \"errors\"\n",
+			"",
+		},
+		{
+			options{rm: StringList{"errors:e"}},
+			"package main\n\nimport e \"errors\"\n",
+			"package main\n",
+			"",
+		},
+		{
+			options{replace: StringList{"html/template:t"}},
+			"package main\n\nimport t \"text/template\"\n",
+			"package main\n\nimport t \"html/template\"\n",
+			"",
+		},
+
+		// JSON
+		{
+			options{add: StringList{"fmt"}, json: true},
+			"package main\nfunc main() { }\n",
+			`{"start":0,"end":0,"linedelta":1,"code":"import import \"fmt\""}`,
+			"",
+		},
+		{
+			options{add: StringList{"fmt"}, json: true},
+			"package main\nimport \"errors\"\nfunc main() { }\n",
+			`{"start":14,"end":29,"linedelta":1,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
 			"",
 		},
 	}
@@ -113,7 +219,7 @@ func TestRewrite(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
 			outB, err := rewrite("test", []byte(tc.in), tc.opts)
 			if !errorContains(err, tc.wantErr) {
-				t.Fatalf("wrong error\nout:  %#v\nwant: %#v\n", err, tc.wantErr)
+				t.Fatalf("wrong error\nout:  %v\nwant: %v\n", err, tc.wantErr)
 			}
 
 			tc.want = normalizeSpace(tc.want)
@@ -134,8 +240,6 @@ func normalizeSpace(in string) string {
 			// Do nothing
 		case '\t':
 			indent++
-		default:
-			break
 		}
 	}
 

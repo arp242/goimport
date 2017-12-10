@@ -24,10 +24,10 @@ $ goimport -add errors:errs foo.go
 $ goimport -replace github.com/pkg/errors foo.go
 
 # Go get package if it doesn't exist
-$ goimport -add github.com/pkg/errors -g foo.go
+$ goimport -get -add github.com/pkg/errors foo.go
 
-# Print out only the import block as json (useful for # editor integrations).
-$ goimport -add github.com/pkg/errors -j foo.go
+# Print out only the import block as json (useful for editor integrations).
+$ goimport -json -add github.com/pkg/errors foo.go
 ```
 
 See `goimport -h` for the full help.

@@ -59,20 +59,20 @@ func main() {
 		os.Exit(2)
 	}
 
-	flag.BoolVar(&opts.get, "g", false,
-		"attempt to 'go get' packages not in GOPATH")
-	flag.BoolVar(&opts.force, "f", false,
-		"force adding/removing package, unless there is a fatal error")
+	flag.BoolVar(&opts.get, "get", false,
+		"attempt to 'go get' packages if they're not found.")
+	flag.BoolVar(&opts.force, "force", false,
+		"force adding/removing package, unless there is a fatal error.")
 	flag.BoolVar(&opts.write, "w", false,
-		"write result to (source) file instead of stdout")
-	flag.BoolVar(&opts.json, "j", false,
-		"print out only the import block as JSON")
+		"write result to (source) file instead of stdout.")
+	flag.BoolVar(&opts.json, "json", false,
+		"print out only the import block as JSON.")
 	flag.Var(&opts.add, "add",
-		"add import; can be given multiple times")
+		"add import; can be given multiple times.")
 	flag.Var(&opts.rm, "rm",
-		"remove import; can be given multiple times")
+		"remove import; can be given multiple times.")
 	flag.Var(&opts.replace, "replace",
-		"like -add, but if an existing package with this name exists it will be replaced")
+		"like -add, but if an existing package with this name exists it will be replaced.")
 
 	flag.Parse()
 	paths := flag.Args()
@@ -189,8 +189,8 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	importsBase := []string{}
 	for _, imp := range astutil.Imports(fset, file) {
 		for _, i := range imp {
-			imports = append(imports, strings.Trim(i.Path.Value, `"`))
-			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`)))
+			imports = append(imports, strings.Trim(i.Path.Value, `"`))                    // nolint: megacheck
+			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`))) // nolint: megacheck
 		}
 	}
 
@@ -206,9 +206,11 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	}
 
 	for _, pkg := range opts.rm {
-		// TODO: deal with named imports.
-		pkg = strings.Trim(pkg, `"/`)
-		astutil.DeleteImport(fset, file, pkg)
+		pkg, alias, err := splitAlias(pkg)
+		if err != nil {
+			return nil, err
+		}
+		astutil.DeleteNamedImport(fset, file, alias, pkg)
 	}
 
 	// Write output.
@@ -272,26 +274,40 @@ func formatImport(p *ast.ImportSpec) string {
 	return name + p.Path.Value + comment
 }
 
+func splitAlias(pkg string) (path string, alias string, err error) {
+	if !strings.Contains(pkg, ":") {
+		return pkg, "", nil
+	}
+
+	s := strings.Split(pkg, ":")
+	if len(s) != 2 {
+		return "", "", fmt.Errorf("invalid package name: '%v'", pkg)
+	}
+
+	path = strings.TrimSpace(s[0])
+	alias = strings.TrimSpace(s[1])
+	if path == "" || alias == "" {
+		return "", "", fmt.Errorf("invalid package name: '%v'", pkg)
+	}
+
+	path = strings.Trim(path, `"/`)
+	return path, alias, nil
+}
+
 func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, replace bool) error {
 
 	imports := []string{}
 	importsBase := []string{}
 	for _, imp := range astutil.Imports(fset, file) {
 		for _, i := range imp {
-			imports = append(imports, strings.Trim(i.Path.Value, `"`))
-			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`)))
+			imports = append(imports, strings.Trim(i.Path.Value, `"`))                    // nolint: megacheck
+			importsBase = append(importsBase, path.Base(strings.Trim(i.Path.Value, `"`))) // nolint: megacheck
 		}
 	}
 
-	pkgAlias := ""
-	if strings.Contains(pkg, ":") {
-		s := strings.Split(pkg, ":")
-		if len(s) != 2 {
-			return fmt.Errorf("invalid package name: %v", s)
-		}
-
-		pkg = s[0]
-		pkgAlias = s[1]
+	pkg, alias, err := splitAlias(pkg)
+	if err != nil {
+		return err
 	}
 
 	if !opts.force && inStringSlice(imports, pkg) {
@@ -304,7 +320,7 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, r
 		}
 
 		if replace {
-			astutil.DeleteImport(fset, file, imp)
+			astutil.DeleteNamedImport(fset, file, alias, imp)
 		} else if !opts.force {
 			return fmt.Errorf("import '%v' would conflict", pkg)
 		}
@@ -324,10 +340,10 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, r
 		}
 	}
 
-	if pkgAlias == "" {
+	if alias == "" {
 		astutil.AddImport(fset, file, pkg)
 	} else {
-		astutil.AddNamedImport(fset, file, pkg, pkgAlias)
+		astutil.AddNamedImport(fset, file, alias, pkg)
 	}
 
 	return nil
