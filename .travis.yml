@@ -1,8 +1,8 @@
 language: go
 go_import_path: arp242.net/goimport
 go:
-  - 1.8.x
   - 1.9.x
+  - latest
 notifications:
   email: false
 cache:
