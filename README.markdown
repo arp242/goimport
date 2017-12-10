@@ -1,5 +1,4 @@
 [![This project is considered stable](https://img.shields.io/badge/Status-stable-green.svg)](https://arp242.net/status/stable)
-[![GoDoc](https://godoc.org/arp242.net/goimport?status.svg)](https://godoc.org/arp242.net/goimport)
 [![Build Status](https://travis-ci.org/Carpetsmoker/goimport.svg?branch=master)](https://travis-ci.org/Carpetsmoker/goimport)
 [![codecov](https://codecov.io/gh/Carpetsmoker/goimport/branch/master/graph/badge.svg)](https://codecov.io/gh/Carpetsmoker/goimport)
 
