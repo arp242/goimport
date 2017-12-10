@@ -200,17 +200,67 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 
+		// Preserve blank lines for grouping.
+		{
+			options{add: StringList{"io"}, rm: StringList{"strings"}},
+			`
+				package main
+
+				import (
+					"errors"
+
+					"fmt"
+					"strings"
+				)
+
+				// comment
+				func main() { }
+			`,
+			`
+				package main
+
+				import (
+					"errors"
+					"io"
+
+					"fmt"
+				)
+
+				// comment
+				func main() {}
+			`,
+			"",
+		},
+
 		// JSON
 		{
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nfunc main() { }\n",
-			`{"start":0,"end":0,"linedelta":1,"code":"import import \"fmt\""}`,
+			`{"start":0,"end":0,"linedelta":1,"code":"import \"fmt\""}`,
 			"",
 		},
 		{
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nimport \"errors\"\nfunc main() { }\n",
 			`{"start":14,"end":29,"linedelta":1,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
+			"",
+		},
+		{
+			options{json: true, add: StringList{"io"}},
+			`
+package main
+
+import (
+	"fmt"
+	"errors"
+
+	"strings"
+)
+
+// comment
+func main() { }
+			`,
+			`{"start":16,"end":55,"linedelta":1,"code":"import (\n\t\"fmt\"\n\t\"errors\"\n\n\t\"strings\"\n\t\"io\"\n)\n\n"}`,
 			"",
 		},
 	}
@@ -224,10 +274,36 @@ func TestRewrite(t *testing.T) {
 
 			tc.want = normalizeSpace(tc.want)
 			out := normalizeSpace(string(outB))
-
 			if out != tc.want {
-				t.Errorf("\nout:  %#v\nwant: %#v\n", out, tc.want)
+				t.Errorf("\nout:  %v\nwant: %v\n", out, tc.want)
 			}
+
+			// Make sure -json has the same code.
+			/*
+				if !tc.opts.json && tc.wantErr == "" {
+					t.Run("json", func(t *testing.T) {
+						tc.opts.json = true
+						outB, err := rewrite("test", []byte(tc.in), tc.opts)
+						if !errorContains(err, tc.wantErr) {
+							t.Fatalf("wrong error\nout:  %v\nwant: %v\n", err, tc.wantErr)
+						}
+
+						j := struct{ Code string }{}
+						err = json.Unmarshal(outB, &j)
+						if err != nil {
+							t.Fatal(err)
+						}
+						out := normalizeSpace(j.Code)
+
+						// Remove package and code
+						want = strings.TrimSpace(want)
+
+						if out != want {
+							t.Errorf("\nout:  %#v\nwant: %#v\n", out, want)
+						}
+					})
+				}
+			*/
 		})
 	}
 }

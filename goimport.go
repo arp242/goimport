@@ -248,11 +248,17 @@ func formatImports(fset *token.FileSet, file *ast.File) string {
 	case 0:
 		return ""
 	case 1:
-		return "import " + fmt.Sprintf("import %v", formatImport(file.Imports[0]))
+		return fmt.Sprintf("import %v", formatImport(file.Imports[0]))
 	default:
 		imp := "import (\n"
+		prevEnd := 0
 		for _, p := range file.Imports {
+			// Preserve blocks as the user defined them.
+			if prevEnd > 0 && int(p.Pos())-prevEnd == 3 {
+				imp += "\n"
+			}
 			imp += "\t" + formatImport(p) + "\n"
+			prevEnd = int(p.End())
 		}
 		return imp + ")\n\n"
 	}
