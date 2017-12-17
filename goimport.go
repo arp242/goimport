@@ -170,6 +170,10 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch x := n.(type) {
 			case *ast.GenDecl:
+				// Empty block; e.g. import ().
+				if len(x.Specs) == 0 {
+					return false
+				}
 				_, ok := x.Specs[0].(*ast.ImportSpec)
 				// var, const, or type
 				if !ok {

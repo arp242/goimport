@@ -43,6 +43,12 @@ func TestRewrite(t *testing.T) {
 			`,
 			"",
 		},
+		{
+			options{add: StringList{`"errors/"`}},
+			"package main\nimport ()",
+			"package main\n\nimport \"errors\"\n",
+			"",
+		},
 
 		// rm
 		{
@@ -243,6 +249,12 @@ func TestRewrite(t *testing.T) {
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nimport \"errors\"\nfunc main() { }\n",
 			`{"start":14,"end":29,"linedelta":1,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
+			"",
+		},
+		{
+			options{add: StringList{`"errors/"`}, json: true},
+			"package main\nimport ()",
+			`{"start":0,"end":0,"linedelta":1,"code":"import \"errors\""}`,
 			"",
 		},
 		{
