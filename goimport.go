@@ -39,10 +39,9 @@ func (l *StringList) Set(v string) error {
 
 // JSON output.
 type JSON struct {
-	Start     int    `json:"start"`
-	End       int    `json:"end"`
-	Linedelta int    `json:"linedelta"`
-	Code      string `json:"code"`
+	Start int    `json:"start"`
+	End   int    `json:"end"`
+	Code  string `json:"code"`
 }
 
 type options struct {
@@ -163,13 +162,15 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 		return nil, fmt.Errorf("ast parse error: %v", err)
 	}
 
-	beforeLines := len(file.Imports)
 	var start, end int
 
 	if opts.json {
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch x := n.(type) {
 			case *ast.GenDecl:
+				start = int(x.Pos())
+				end = int(x.End())
+
 				// Empty block; e.g. import ().
 				if len(x.Specs) == 0 {
 					return false
@@ -179,8 +180,10 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 				if !ok {
 					return false
 				}
-				start = int(x.Pos())
-				end = int(x.End())
+
+			// package
+			case *ast.Ident:
+				start = int(x.End()) + 1
 
 			case *ast.FuncDecl:
 				return false
@@ -221,10 +224,9 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 	var out []byte
 	if opts.json {
 		out, err = json.Marshal(JSON{
-			Code:      formatImports(fset, file),
-			Linedelta: len(file.Imports) - beforeLines,
-			Start:     start,
-			End:       end,
+			Code:  formatImports(fset, file),
+			Start: start,
+			End:   end,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("json error: %v", err)

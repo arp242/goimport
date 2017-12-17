@@ -49,6 +49,12 @@ func TestRewrite(t *testing.T) {
 			"package main\n\nimport \"errors\"\n",
 			"",
 		},
+		{
+			options{add: StringList{`"errors/"`}},
+			"// +build sometag\n\npackage main\nimport ()",
+			"// +build sometag\n\npackage main\n\nimport \"errors\"\n",
+			"",
+		},
 
 		// rm
 		{
@@ -242,19 +248,19 @@ func TestRewrite(t *testing.T) {
 		{
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nfunc main() { }\n",
-			`{"start":0,"end":0,"linedelta":1,"code":"import \"fmt\""}`,
+			`{"start":14,"end":0,"code":"import \"fmt\""}`,
 			"",
 		},
 		{
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nimport \"errors\"\nfunc main() { }\n",
-			`{"start":14,"end":29,"linedelta":1,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
+			`{"start":14,"end":29,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
 			"",
 		},
 		{
 			options{add: StringList{`"errors/"`}, json: true},
 			"package main\nimport ()",
-			`{"start":0,"end":0,"linedelta":1,"code":"import \"errors\""}`,
+			`{"start":14,"end":23,"code":"import \"errors\""}`,
 			"",
 		},
 		{
@@ -272,7 +278,7 @@ import (
 // comment
 func main() { }
 			`,
-			`{"start":16,"end":55,"linedelta":1,"code":"import (\n\t\"fmt\"\n\t\"errors\"\n\n\t\"strings\"\n\t\"io\"\n)\n\n"}`,
+			`{"start":16,"end":55,"code":"import (\n\t\"fmt\"\n\t\"errors\"\n\n\t\"strings\"\n\t\"io\"\n)\n\n"}`,
 			"",
 		},
 	}
