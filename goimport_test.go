@@ -44,6 +44,27 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 		{
+			options{add: StringList{"fmt"}},
+			`
+				package main
+
+				import (
+					"errors"
+					//"fmt"
+				)
+			`,
+			`
+				package main
+
+				import (
+					"errors"
+					"fmt"
+					//"fmt"
+				)
+			`,
+			"",
+		},
+		{
 			options{add: StringList{`"errors/"`}},
 			"package main\nimport ()",
 			"package main\n\nimport \"errors\"\n",
