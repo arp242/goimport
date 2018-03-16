@@ -31,6 +31,12 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 		{
+			options{add: StringList{`"errors/"`}},
+			"package main\nfunc main() {}",
+			"package main\n\nimport \"errors\"\n\nfunc main() {}",
+			"",
+		},
+		{
 			options{add: StringList{"errors", "fmt"}},
 			"package main\n",
 			`
@@ -68,6 +74,12 @@ func TestRewrite(t *testing.T) {
 			options{add: StringList{`"errors/"`}},
 			"package main\nimport ()",
 			"package main\n\nimport \"errors\"\n",
+			"",
+		},
+		{
+			options{add: StringList{`"errors/"`}},
+			"package main\n\nimport ()\n\nfunc main() {}",
+			"package main\n\nimport \"errors\"\n\nfunc main() {}",
 			"",
 		},
 		{
