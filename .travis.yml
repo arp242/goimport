@@ -2,7 +2,7 @@ language: go
 go_import_path: arp242.net/goimport
 go:
   - 1.9.x
-  - tip
+  - 1.10.x
 notifications:
   email: false
 cache:
