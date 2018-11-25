@@ -1,18 +1,24 @@
 language: go
-go_import_path: arp242.net/goimport
 go:
-  - 1.9.x
   - 1.10.x
+  - 1.11.x
+go_import_path: arp242.net/goimport
 notifications:
   email: false
 cache:
   directories:
-    - $HOME/gopath/pkg
-install:
-  - go get -u github.com/golang/dep/cmd/dep
-  - dep ensure
-script:
-  - cd $HOME/gopath/src/arp242.net/goimport
-  - ./bin/test
-  - ./bin/coverage
-  - ./bin/lint
+    - $HOME/.cache/go-build
+    - $HOME/gopath/bin
+
+install: |
+  ./bin/setup-travis
+
+script: |
+  set -e
+  cd $HOME/gopath/src/arp242.net/goimport
+  [ -f go.sum ] && export GO111MODULE=on ||:
+  ./bin/coverage -race ./...
+  env GO111MODULE=off ./bin/lint ./...
+
+before_cache: |
+  rm "$HOME/.cache/go-build/log.txt"

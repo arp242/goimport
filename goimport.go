@@ -53,7 +53,7 @@ func main() {
 	var opts options
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: goimport [flags] [path ...]\n")
+		_, _ = fmt.Fprintf(os.Stderr, "usage: goimport [flags] [path ...]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -381,6 +381,6 @@ func inStringSlice(list []string, str string) bool {
 }
 
 func fatal(err error) {
-	fmt.Fprintf(os.Stderr, "goimport: %v\n", err)
+	_, _ = fmt.Fprintf(os.Stderr, "goimport: %v\n", err)
 	os.Exit(1)
 }
