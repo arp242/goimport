@@ -10,7 +10,6 @@ import (
 	"go/ast"
 	"go/format"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"io"
 	"io/ioutil"
@@ -233,17 +232,12 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 		}
 		out = append(out, '\n')
 	} else {
-		printConfig := &printer.Config{}
 		var buf bytes.Buffer
-		err = printConfig.Fprint(&buf, fset, file)
-		if err != nil {
-			return nil, fmt.Errorf("print error: %v", err)
-		}
-
-		out, err = format.Source(buf.Bytes())
+		err = format.Node(&buf, fset, file)
 		if err != nil {
 			return nil, fmt.Errorf("format error: %v", err)
 		}
+		out = buf.Bytes()
 	}
 
 	return out, nil
