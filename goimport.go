@@ -356,11 +356,14 @@ func addPackage(fset *token.FileSet, file *ast.File, pkg string, opts options, r
 }
 
 func goget(pkg string) error {
-	return exec.Command("go", "get", pkg).Run()
+	cmd := exec.Command("go", "get", pkg)
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 func exists(pkg string) bool {
 	cmd := exec.Command("go", "list", pkg)
+	cmd.Env = os.Environ()
 	return cmd.Run() == nil
 }
 
