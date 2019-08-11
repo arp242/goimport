@@ -260,7 +260,7 @@ func formatImports(fset *token.FileSet, file *ast.File) string {
 			imp += "\t" + formatImport(p) + "\n"
 			prevEnd = int(p.End())
 		}
-		return imp + ")\n\n"
+		return imp + ")"
 	}
 }
 
