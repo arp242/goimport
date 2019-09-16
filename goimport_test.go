@@ -297,6 +297,12 @@ func TestRewrite(t *testing.T) {
 			"",
 		},
 		{
+			options{add: StringList{"errors"}, json: true},
+			"package main\nimport (\n\tf \"fmt\"\n)",
+			`{"start":14,"end":33,"code":"import (\n\tf \"fmt\"\n\t\"errors\"\n)"}`,
+			"",
+		},
+		{
 			options{json: true, add: StringList{"io"}},
 			`
 package main

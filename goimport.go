@@ -182,7 +182,9 @@ func rewrite(filename string, src []byte, opts options) ([]byte, error) {
 
 			// package
 			case *ast.Ident:
-				start = int(x.End()) + 1
+				if start == 0 {
+					start = int(x.End()) + 1
+				}
 
 			case *ast.FuncDecl:
 				return false
