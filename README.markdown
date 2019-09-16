@@ -1,6 +1,6 @@
 [![This project is considered stable](https://img.shields.io/badge/Status-stable-green.svg)](https://arp242.net/status/stable)
-[![Build Status](https://travis-ci.org/Carpetsmoker/goimport.svg?branch=master)](https://travis-ci.org/Carpetsmoker/goimport)
-[![codecov](https://codecov.io/gh/Carpetsmoker/goimport/branch/master/graph/badge.svg)](https://codecov.io/gh/Carpetsmoker/goimport)
+[![Build Status](https://travis-ci.org/arp242/goimport.svg?branch=master)](https://travis-ci.org/arp242/goimport)
+[![codecov](https://codecov.io/gh/arp242/goimport/branch/master/graph/badge.svg)](https://codecov.io/gh/arp242/goimport)
 
 `goimport` is a tool to add, remove, or replace imports in Go files.
 

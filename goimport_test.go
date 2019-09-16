@@ -287,7 +287,7 @@ func TestRewrite(t *testing.T) {
 		{
 			options{add: StringList{"fmt"}, json: true},
 			"package main\nimport \"errors\"\nfunc main() { }\n",
-			`{"start":14,"end":29,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)\n\n"}`,
+			`{"start":14,"end":29,"code":"import (\n\t\"errors\"\n\t\"fmt\"\n)"}`,
 			"",
 		},
 		{
@@ -311,7 +311,7 @@ import (
 // comment
 func main() { }
 			`,
-			`{"start":16,"end":55,"code":"import (\n\t\"fmt\"\n\t\"errors\"\n\n\t\"strings\"\n\t\"io\"\n)\n\n"}`,
+			`{"start":16,"end":55,"code":"import (\n\t\"fmt\"\n\t\"errors\"\n\n\t\"strings\"\n\t\"io\"\n)"}`,
 			"",
 		},
 	}
