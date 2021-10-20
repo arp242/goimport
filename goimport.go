@@ -1,5 +1,5 @@
 // goimport is a tool to add, remove, or replace imports in Go files.
-package main // import "arp242.net/goimport"
+package main
 
 import (
 	"bytes"

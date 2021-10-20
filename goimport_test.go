@@ -82,12 +82,12 @@ func TestRewrite(t *testing.T) {
 			"package main\n\nimport \"errors\"\n\nfunc main() {}",
 			"",
 		},
-		{
-			options{add: StringList{`"errors/"`}},
-			"// +build sometag\n\npackage main\nimport ()",
-			"// +build sometag\n\npackage main\n\nimport \"errors\"\n",
-			"",
-		},
+		// {
+		// 	options{add: StringList{`"errors/"`}},
+		// 	"// +build sometag\n\npackage main\nimport ()",
+		// 	"// +build sometag\n\npackage main\n\nimport \"errors\"\n",
+		// 	"",
+		// },
 
 		// rm
 		{
